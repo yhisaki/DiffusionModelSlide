@@ -5,7 +5,7 @@
   height: 255mm,
   margin: (x: 20mm, y: 20mm),
 )
-#set text(size: 11pt, lang: "en")
+#set text(size: 8pt, lang: "en")
 
 #show: thmrules
 
