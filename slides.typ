@@ -38,22 +38,30 @@
 #table-of-contents()
 
 #title-slide[
-  Introduction
-]
-
-#slide(title: "Aim and Scope")[
-
-  - The purpose of this talk is to understand the Diffusion Model, which is part of the Diffusion Planner algorithm.
-  - Diffusion Model is more difficult than previous talk about Transformer. Diffusion Model is based on the difficult mathematical theory.
-  - However, the outcome of this theory is a simple algorithm.
-  - A rough understanding of the theory is sufficient; you don't need to worry about the details.
-
-]
-
-#title-slide[
   Why Diffusion?
 ]
 
+#slide(title: "Generative Models for Planning")[
+  - *The Goal:* How should we model complex human driving behavior using machine learning?
+
+  #v(0.5em)
+
+  - *The Naive Approach (Regression):*
+    The simplest method is to learn a deterministic function $tau = f_theta(c)$ that maps the context $c$ to a single future trajectory $tau$.
+    - Input $c$: Ego state, other vehicles, map data, etc.
+    - Output $tau$: Sequence of states ${x_t, x_(t+1), ..., x_T}$.
+
+  #v(0.5em)
+
+  - *The Limitation:*
+    *However*, human behavior is inherently *multimodal* and uncertain.
+
+    - In ambiguous scenarios, there are multiple valid maneuvers.
+
+  #v(0.5em)
+
+  $arrow.double$ We need a *Generative Model* that learns the full distribution $p(tau | c)$, not just a single path.
+]
 #slide(title: "Motivation: Iterative Refinement")[
   #set text(size: 17pt)
   The central goal is to estimate an unknown data distribution $q(x)$ from samples $x tilde q(x)$.
@@ -61,7 +69,7 @@
   #v(0.8em)
 
   - *The Standard Approach (e.g., VAEs):*
-    Introduce a latent variable $z tilde cal(N)(0, I)$ and map it to data via a *single* probabilistic decoding step $p_theta(x|z)$.
+    Introduce a latent variable $z tilde cal(N)(0, I)$ and map it to data via a *single* probabilistic decoding step $p_theta (x|z)$.
     $ z arrow.long^(p_theta (x|z)) x $
 
   #v(0.5em)
@@ -78,13 +86,13 @@
 ]
 
 #slide(title: "Three Formulations and Today's Focus")[
-  #set text(size: 15pt)
+  #set text(size: 16pt)
 
-  The idea of "gradual transformation" can be mathematically formulated in three main ways:
+  The idea of "Diffusion Model" can be mathematically formulated in three main ways:
 
   #v(0.5em)
 
-  1. *Denoising Diffusion Probabilistic Models (DDPM) @ddpm*
+  1. *Denoising Diffusion Probabilistic Models (DDPM) @ddpm @nonequilibrium-diffusion*
     - Formulated as discrete Markov chains.
     - Optimized via Variational Lower Bound (ELBO).
     - _Key idea:_ Learn to reverse the noise addition step-by-step.
@@ -97,7 +105,7 @@
 
   #v(0.2em)
 
-  3. *Flow Matching*
+  3. *Flow Matching @flow-matching*
     - A more general framework based on Ordinary Differential Equations (ODEs).
     - _Key idea:_ Directly regress a *vector field* $v_t (x)$ to transport probability paths.
 
@@ -110,32 +118,55 @@
   Score Matching Basics
 ]
 
-#slide(title: "Score Function: Definition and Intuition")[
+#slide(title: "Motivation: Learning Unnormalized Distributions")[
+
+  #set text(size: 14pt)
+
+  *The Goal:*
+  Given a dataset of samples ${x_1, ..., x_N}$ from an unknown distribution $q (x)$, we want to learn a model $p_theta (x)$ that approximates it.
+
+  #v(0.5em)
+
+  - *The Modeling Challenge:*
+    Flexible probability models are often defined up to a normalization constant (Energy-Based Models):
+    $ p_theta (x) = (exp(-E_theta (x))) / Z_theta, quad Z_theta = integral exp(-E_theta (x)) dif x $
+
+  #v(0.5em)
+
+  - *The Intractable Partition Function:*
+    To train via Maximum Likelihood Estimation (MLE), we need to maximize $log p_theta (x)$. However, calculating $Z_theta$ (the integral over high-dimensional space) is computationally impossible.
+    $ log p_theta (x) = -E_theta (x) - underbrace(log Z_theta, "Intractable!") $
+
+  #v(0.5em)
+
+  - *The Solution (Differentiation):*
+    If we take the gradient with respect to input $x$, the constant $Z_theta$ vanishes!
+    $ nabla_x log p_theta (x) = - nabla_x E_theta (x) - underbrace(nabla_x log Z_theta, "0") = - nabla_x E_theta (x) $
+]
+
+#slide(title: [The Score Function: Definition and Intuition])[
 
   #set text(size: 16pt)
 
-  Before introducing diffusion, let's define the "Score".
+  By modeling the gradient of the log-density instead of the density itself, we bypass the normalization problem entirely.
 
-  #definition("Score")[
-    For a probability density $q(x)$, the score is defined as the gradient of the log-density with respect to data $x$:
-    $
-      s_t (x) := nabla_x log p_t (x).
-    $
+  #definition("The Score Function")[
+    For a probability density $p(x)$, the score is defined as:
+    $ s(x) := nabla_x log p(x). $
   ]
 
   - *Intuition: A Vector Field*
-    - The score is a vector field pointing in the direction of *higher data density*.
-    - At the modes (peaks) of the distribution, the score is zero ($nabla log q(x) = 0$).
+    - The score is a vector field pointing in the direction of *steepest ascent* (higher data density).
+    - Crucially, it creates a valid training target without ever needing to compute $Z_theta$.
 
-  #v(0.2em)
+  #v(0.5em)
 
-  - *The Goal (Score Matching)*
-    We want to train a neural network $s_theta(x)$ to approximate this true score:
-    $ cal(L)_("SM")(theta) = bb(E)_(x tilde q) [ || s_theta (x) - nabla_x log q(x) ||^2_2 ] $
-  // (Fisher Divergence)
+  - *The Objective (Score Matching):*
+    We train a neural network $s_theta(x)$ to match the data score:
+    $ cal(L)_("SM")(theta) = bb(E)_(x tilde q ) [ || s_theta (x) - nabla_x log q (x) ||^2_2 ] $
 ]
 
-#slide(title: "Denoising Score Matching: Tractable Target")[
+#slide(title: [Denoising Score Matching: Tractable Target @score-matching])[
 
   #set text(size: 18pt)
   *Problem:* The true score $nabla_x log q(x)$ is intractable.
@@ -147,7 +178,7 @@
 
     Optimizing the explicit score matching objective for the smoothed marginal,
     $
-      cal(L)_("ESM")(theta) = bb(E)_(q(tilde(x))) [ || s_theta(tilde(x)) - nabla_tilde(x) log q(tilde(x)) ||_2^2 ],
+      cal(L)_("ESM")(theta) = bb(E)_(q(tilde(x))) [ || s_theta (tilde(x)) - nabla_tilde(x) log q(tilde(x)) ||_2^2 ],
     $
     is equivalent to optimizing the Denoising Score Matching objective up to a constant $C$ independent of $theta$:
     $
@@ -232,6 +263,14 @@
   How do we populate low-density regions and fix the undefined score?
 
   *Solution:* Continuously perturb the data into pure noise over time $t in [0, T]$.
+
+  #block(fill: luma(240), inset: 1em, radius: 5pt)[
+    *Intuition: From "Cliffs" to "Gentle Hills"*
+    Raw data is like isolated "islands" in a vast space; outside them, the gradient (direction) is unknown.
+    The SDE adds noise, acting like ink spreading in water. This *smooths* the distribution, spreading probability mass into empty regions.
+    Result: The score becomes defined everywhere, creating a "slope" that guides us back to the data.
+  ]
+
   #theorem("Forward SDE and its marginal evolution")[
     Assume the *forward* diffusion is defined by the Itô SDE:
     $
@@ -250,7 +289,7 @@
   #v(0.5em)
 
   - *What this Theorem Means:*
-    Simply put, if we take a data point sampled from $x_0 tilde p_0(x)$ and move it according to the SDE, this PDE describes exactly what its probability distribution $x_t tilde p_t (x)$ looks like at any time $t$.
+    It bridges the *microscopic* stochastic path (SDE) and the *macroscopic* density evolution (PDE). Crucially, the diffusion term $1/2 g(t)^2 Delta p_t$ acts as a smoothing operator (like heat flow). This spreads probability mass into empty regions, ensuring $p_t(x) > 0$ everywhere so the score $nabla log p_t(x)$ becomes well-defined.
 
   - *Designing the SDE:*
     We design the drift $f(x,t)$ and diffusion $g(t)$ specifically so that as $t arrow T$, the distribution $p_t (x)$ smoothly converges to a simple, tractable noise distribution. For example, setting $f(x,t) = -1/2 beta(t) x$ and $g(t) = sqrt(beta(t))$ ensures $p_T (x) approx cal(N)(0, I)$.
@@ -276,7 +315,7 @@
   The forward SDE transforms data $p_0 (x)$ into pure noise $p_T (x) approx cal(N)(0, I)$. To generate data, we reverse this process from $t=T$ down to $t=0$.
   Remarkably, we can perfectly retrace the exact marginal densities $p_t (x)$ using a deterministic equation.
 
-  #theorem("Probability Flow ODE (Song et al., 2020)")[
+  #theorem([Probability Flow ODE @score-based-generative-models])[
     For the forward SDE $dif x = f(x, t) dif t + g(t) dif w$, there exists a corresponding deterministic *Ordinary Differential Equation (ODE)*. This ODE shares the *exact same marginal probability densities* $p_t (x)$ at all times $t in [0, T]$:
     $
       dif x = [ f(x, t) - 1/2 g(t)^2 nabla_x log p_t (x) ] dif t.
@@ -315,7 +354,7 @@
     #v(0.5em)
 
     2. *Learn the Score Function:*
-      Since the probability flow ODE requires $nabla_x log p_t (x)$, we need a way to train a time-dependent neural network $s_theta(x, t)$ to approximate this score for *all* continuous times $t in [0, T]$.
+      Since the probability flow ODE requires $nabla_x log p_t (x)$, we need a way to train a time-dependent neural network $s_theta (x, t)$ to approximate this score for *all* continuous times $t in [0, T]$.
 
   #v(0.8em)
 

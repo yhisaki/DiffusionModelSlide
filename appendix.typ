@@ -38,7 +38,6 @@
 
 Let $(x_t)_(t in [0, T])$ be a diffusion process on $RR^d$ driven by a standard Wiener process $(w_t)$.
 
-// Theorem 1
 #theorem("Forward SDE and its marginal evolution")[
   Assume the *forward* diffusion is defined by the Itô SDE
   $
@@ -60,7 +59,7 @@ Let $(x_t)_(t in [0, T])$ be a diffusion process on $RR^d$ driven by a standard 
 
 // Lemma: Itô's Lemma
 #lemma("Itô's Lemma for test functions")[
-  Let $x_t$ be the process defined above and $phi: RR^d -> RR$ be a smooth function ($C^2$).
+  Let $x_t$ be the process defined above and $phi: RR^d -> RR$ be a smooth test function ($C^2$).
   The stochastic differential of $phi(x_t)$ is given by:
   $
     dif phi(x_t)
@@ -70,58 +69,81 @@ Let $(x_t)_(t in [0, T])$ be a diffusion process on $RR^d$ driven by a standard 
 ] <lemma-ito>
 
 #proof[
-  Let $phi(x)$ be an arbitrary smooth test function with compact support ($phi in C_c^infinity (RR^d)$).
+  Let $phi(x)$ be a smooth test function with compact support (arbitrary).
+  Applying @lemma-ito to the scalar field $phi(x_t)$:
 
-  We define the expectation $E(t) := EE[phi(x_t)]$.
-  Integrating the SDE form given in @lemma-ito from $0$ to $t$ and taking the expectation:
   $
-    EE[phi(x_t)] - EE[phi(x_0)]
-    &= EE[ integral_0^t lr([ f(x_s, s) dot.c nabla phi(x_s) + 1/2 g(s)^2 Delta phi(x_s) ]) dif s ] \
-    &quad + EE[ integral_0^t g(s) nabla phi(x_s) dot.c dif w_s ]. \
-  $
-  The second term (the stochastic integral) vanishes because the Itô integral with respect to a Wiener process is a martingale (and has zero expectation starting from 0).
-
-  Differentiating the remaining term with respect to $t$:
-  $
-    (dif)/(dif t) EE[phi(x_t)]
-    = EE[ f(x_t, t) dot.c nabla phi(x_t) + 1/2 g(t)^2 Delta phi(x_t) ].
+    dif phi(x_t) & = (nabla phi(x_t) dot.c f(x_t, t) + 1/2 g(t)^2 Delta phi(x_t)) dif t \
+                 & + g(t) nabla phi(x_t) dot.c dif w_t
   $
 
-  Now, we rewrite the expectation using the probability density $p_t(x)$:
+  Taking the expectation $bb(E)$ on both sides with respect to the density $p_t (x)$, and noting that the expectation of the martingale term (the $dif w_t$ term) is zero:
+
   $
-    integral_(RR^d) phi(x) partial_t p_t(x) dif x
-    = integral_(RR^d) lr([ f(x,t) dot.c nabla phi(x) + 1/2 g(t)^2 Delta phi(x) ]) p_t(x) dif x.
+    frac(dif, dif t) bb(E)[phi(x_t)] = bb(E) [ nabla phi(x_t) dot.c f(x_t, t) + 1/2 g(t)^2 Delta phi(x_t) ]
   $
 
-  We apply integration by parts to move the derivatives from the test function $phi$ to the density $p_t$. Since $phi$ has compact support, the boundary terms vanish.
+  Rewriting the expectation using the density integral $bb(E)[h(x)] = integral h(x) p_t (x) dif x$:
 
-  1. For the drift term:
   $
-    integral (f dot.c nabla phi) p_t dif x = - integral phi nabla dot.c (f p_t) dif x.
+    integral phi(x) partial_t p_t (x) dif x = integral [ nabla phi(x) dot.c f(x, t) + 1/2 g(t)^2 Delta phi(x) ] p_t (x) dif x
   $
+  Now, we apply *Integration by Parts (IBP)* to transfer the spatial derivatives from the test function $phi(x)$ to the density $p_t (x)$.
+  Since $phi(x)$ has compact support, it vanishes at infinity ($phi(x) -> 0$ as $|x| -> infinity$), so all boundary terms become zero.
 
-  2. For the diffusion term (applying IBP twice):
-  $
-    integral (Delta phi) p_t dif x = integral phi Delta p_t dif x.
-  $
+  1. *Drift Term (1st order derivative):*
+  Using the vector calculus identity $nabla dot.c (psi bold(A)) = nabla psi dot.c bold(A) + psi nabla dot.c bold(A)$, we expand the divergence of the product $phi(x) f(x,t) p_t (x)$:
 
-  Substituting these back yields:
   $
-    integral_(RR^d) phi(x) partial_t p_t(x) dif x
-    = integral_(RR^d) phi(x) lr([ - nabla dot.c (f(x,t) p_t(x)) + 1/2 g(t)^2 Delta p_t(x) ]) dif x.
-  $
-
-  Rearranging terms to one side:
-  $
-    integral_(RR^d) phi(x) lr([ partial_t p_t(x) + nabla dot.c (f p_t) - 1/2 g(t)^2 Delta p_t ]) dif x = 0.
+    integral (nabla phi(x) dot.c f(x,t)) p_t (x) dif x
+    &= integral [ nabla dot.c (phi(x) f(x,t) p_t (x)) - phi(x) nabla dot.c (f(x,t) p_t (x)) ] dif x \
+    &= underbrace(integral nabla dot.c (phi(x) f(x,t) p_t (x)) dif x, "Boundary term = 0 (Divergence Thm)")
+    - integral phi(x) nabla dot.c (f(x,t) p_t (x)) dif x \
+    &= - integral phi(x) nabla dot.c (f(x,t) p_t (x)) dif x
   $
 
-  Since this equality holds for *any* smooth test function $phi$ with compact support, the fundamental lemma of calculus of variations implies that the term in the brackets must be zero almost everywhere. Thus, $p_t$ satisfies the Fokker--Planck equation.
+  2. *Diffusion Term (2nd order derivative):*
+  We perform IBP twice. First, note that $g(t)$ is independent of $x$, so we pull it out.
+  We focus on the Laplacian term $integral (Delta phi(x)) p_t (x) dif x$.
+  Recall that $Delta phi = nabla dot.c nabla phi$.
+
+  *Step A (First IBP):* Move one $nabla$.
+  $
+    integral (nabla dot.c nabla phi(x)) p_t (x) dif x & = underbrace(integral nabla dot.c (p_t (x) nabla phi(x)) dif x, "= 0 (Boundary)")
+                                                              - integral nabla phi(x) dot.c nabla p_t (x) dif x \
+                                                            & = - integral nabla phi(x) dot.c nabla p_t (x) dif x
+  $
+
+  *Step B (Second IBP):* Move the remaining $nabla$.
+  $
+    - integral nabla phi(x) dot.c nabla p_t (x) dif x & = - [ underbrace(integral nabla dot.c (phi(x) nabla p_t (x)) dif x, "= 0 (Boundary)")
+                                                                - integral phi(x) nabla dot.c nabla p_t (x) dif x ] \
+                                                            & = integral phi(x) Delta p_t (x) dif x
+  $
+
+  Combining Step A and B with the coefficient $1/2 g(t)^2$:
+  $
+    integral 1/2 g(t)^2 Delta phi(x) p_t (x) dif x
+    = integral phi(x) [ 1/2 g(t)^2 Delta p_t (x) ] dif x
+  $
+
+  Substituting these results back into the original expectation equation:
+
+  $
+    integral phi(x) partial_t p_t (x) dif x
+    = integral phi(x) [ - nabla dot.c (f(x,t) p_t (x)) + 1/2 g(t)^2 Delta p_t (x) ] dif x
+  $
+
+  Rearranging to group all terms on one side:
+  $
+    integral phi(x) underbrace(( partial_t p_t (x) + nabla dot.c (f(x,t) p_t (x)) - 1/2 g(t)^2 Delta p_t (x) ), "Must be 0") dif x = 0
+  $
 ]
+
 #definition("Score of the marginal")[
   Define the *score* function as the gradient of the log-density:
   $
-    s_t (x) := nabla_x log p_t (x) = (nabla p_t(x)) / p_t(x).
+    s (x) := nabla_x log p (x).
   $
 ]
 
@@ -141,17 +163,17 @@ Let $(x_t)_(t in [0, T])$ be a diffusion process on $RR^d$ driven by a standard 
 #proof[
   Consider the general form of the reverse drift $tilde(f)(x,t)$. For a diffusion process with scalar diffusion $g(t)$, the relationship between the forward drift $f$ and the reverse drift $tilde(f)$ is given by:
   $
-    tilde(f)(x,t) = f(x,t) - 1/p_t(x) nabla dot.c (D(t) p_t(x)),
+    tilde(f)(x,t) = f(x,t) - 1/(p_t (x)) nabla dot.c (D(t) p_t (x)),
   $
   where $D(t) = g(t)^2 I$ is the diffusion tensor.
   Substituting $D(t)$ into the equation:
   $
-    tilde(f)(x,t) & = f(x,t) - 1/p_t(x) nabla dot.c (g(t)^2 p_t(x)) \
-                  & = f(x,t) - g(t)^2 (nabla p_t(x)) / p_t(x).
+    tilde(f)(x,t) & = f(x,t) - 1/(p_t (x)) nabla dot.c (g(t)^2 p_t (x)) \
+                  & = f(x,t) - g(t)^2 (nabla p_t (x)) / (p_t (x)).
   $
-  Using the definition of the score $s_t(x) = nabla log p_t(x) = (nabla p_t(x)) / p_t(x)$, we obtain:
+  Using the definition of the score $s_t (x) = nabla log p_t (x) = (nabla p_t (x)) / (p_t (x))$, we obtain:
   $
-    tilde(f)(x,t) = f(x,t) - g(t)^2 s_t(x).
+    tilde(f)(x,t) = f(x,t) - g(t)^2 s_t (x).
   $
   Thus, the reverse SDE has the modified drift $f - g^2 s_t$ and the same diffusion coefficient $g(t)$.
 ]
@@ -186,13 +208,13 @@ Let $(x_t)_(t in [0, T])$ be a diffusion process on $RR^d$ driven by a standard 
     partial_t p_t & = - nabla dot.c (f p_t) + nabla dot.c (1/2 g(t)^2 s_t p_t) \
                   & = - nabla dot.c lr([ (f - 1/2 g(t)^2 s_t) p_t ]).
   $
-  This equation is exactly the *continuity equation* (Liouville equation) describing the evolution of densities under a deterministic flow field $v_t(x)$:
+  This equation is exactly the *continuity equation* (Liouville equation) describing the evolution of densities under a deterministic flow field $v_t (x)$:
   $
     partial_t p_t + nabla dot.c (v_t p_t) = 0.
   $
   Comparing terms, we identify the velocity field:
   $
-    v_t(x) = f(x,t) - 1/2 g(t)^2 s_t(x).
+    v_t (x) = f(x,t) - 1/2 g(t)^2 s_t (x).
   $
-  Since the ODE $(dif x_t) / (dif t) = v_t(x_t)$ implies the continuity equation for its marginals, and this equation is identical to the SDE's Fokker--Planck equation, the ODE and the SDE share the same marginal densities $p_t$.
+  Since the ODE $(dif x_t) / (dif t) = v_t (x_t)$ implies the continuity equation for its marginals, and this equation is identical to the SDE's Fokker--Planck equation, the ODE and the SDE share the same marginal densities $p_t$.
 ]
