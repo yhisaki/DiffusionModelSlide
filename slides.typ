@@ -47,7 +47,7 @@
   #v(0.5em)
 
   - *The Naive Approach (Regression):*
-    The simplest method is to learn a deterministic function $tau = f_theta(c)$ that maps the context $c$ to a single future trajectory $tau$.
+    The simplest method is to learn a deterministic function $tau = f_theta (c)$ that maps the context $c$ to a single future trajectory $tau$.
     - Input $c$: Ego state, other vehicles, map data, etc.
     - Output $tau$: Sequence of states ${x_t, x_(t+1), ..., x_T}$.
 
@@ -162,7 +162,7 @@
   #v(0.5em)
 
   - *The Objective (Score Matching):*
-    We train a neural network $s_theta(x)$ to match the data score:
+    We train a neural network $s_theta (x)$ to match the data score:
     $ cal(L)_("SM")(theta) = bb(E)_(x tilde q ) [ || s_theta (x) - nabla_x log q (x) ||^2_2 ] $
 ]
 
@@ -244,7 +244,7 @@
 
   2. *Inaccurate Estimation in Low-Density Regions*
     - The loss $bb(E)_(x tilde q)$ only minimizes error *where data exists*.
-    - In low-density regions (most of the space), the model $s_theta(x)$ is untrained.
+    - In low-density regions (most of the space), the model $s_theta (x)$ is untrained.
     - *Result:* When sampling starts from random noise (low density), the gradients are inaccurate, leading to garbage generation.
 
   #v(0.5em)
@@ -354,7 +354,7 @@
     Define the specific drift $f(x, t)$ and diffusion $g(t)$ to ensure convergence to Gaussian noise.
 
   2. *Step 2: Train the Score (Score Matching)*
-    Train a neural network $s_theta(x, t)$ to estimate the gradient field $nabla_x log p_t(x)$.
+    Train a neural network $s_theta (x, t)$ to estimate the gradient field $nabla_x log p_t(x)$.
 
   3. *Step 3: Generate (Reverse ODE)*
     Plug the learned score into the Probability Flow ODE and solve it backwards from noise to data.
@@ -401,7 +401,6 @@
     $ beta(t) = beta_"min" + t (beta_"max" - beta_"min") $
     Standard hyperparameters are $beta_"min" = 0.1$ and $beta_"max" = 20$.
 
-    This gives a simple, closed-form solution for code implementation:
     $ integral_0^t beta(s) dif s = beta_"min" t + 1/2 (beta_"max" - beta_"min") t^2 $
     $ => alpha_t = exp(- beta_"min" t - 1/2 (beta_"max" - beta_"min") t^2) $
 
@@ -443,7 +442,7 @@
 
   #set text(size: 16pt)
 
-  We now have a specific SDE and its transition kernel. The task is to train a neural network $s_theta(x, t)$ to approximate the score $nabla_x log p_t (x)$ across all continuous times $t in [0, 1]$.
+  We now have a specific SDE and its transition kernel. The task is to train a neural network $s_theta (x, t)$ to approximate the score $nabla_x log p_t (x)$ across all continuous times $t in [0, 1]$.
 
   #v(0.5em)
 
@@ -467,7 +466,7 @@
     We train our score network $s_theta (x_t, t)$ by minimizing the expected distance to this conditional score. We sample time $t$ uniformly, original data $x_0$, and perturbed data $x_t$.
 
     $
-      cal(L)(theta) = bb(E)_(t tilde cal(U)(0, 1)) bb(E)_(x_0 tilde p_0) bb(E)_(x_t tilde p_(t|0)) [ lambda(t) || s_theta(x_t, t) - underbrace((- (x_t - sqrt(alpha_t) x_0) / (1 - alpha_t)), nabla_(x_t) log p_(t|0)(x_t | x_0)) ||^2_2 ]
+      cal(L)(theta) = bb(E)_(t tilde cal(U)(0, 1)) bb(E)_(x_0 tilde p_0) bb(E)_(x_t tilde p_(t|0)) [ lambda(t) || s_theta (x_t, t) - underbrace((- (x_t - sqrt(alpha_t) x_0) / (1 - alpha_t)), nabla_(x_t) log p_(t|0)(x_t | x_0)) ||^2_2 ]
     $
 
   #v(0.5em)
@@ -510,14 +509,14 @@
 
   #set text(size: 16pt)
 
-  In practice, we replace the unknown true score with our trained neural network $s_theta(x, t)$.
+  In practice, we replace the unknown true score with our trained neural network $s_theta (x, t)$.
 
   #v(0.5em)
 
   - *The Generative Equation:*
     Substituting the VP SDE terms ($f = -1/2 beta(t)x$, $g = sqrt(beta(t))$), we solve the following ODE *backwards* from $t=T$ to $0$:
     $
-      dif x = [ -1/2 beta(t) x - 1/2 beta(t) s_theta(x, t) ] dif t
+      dif x = [ -1/2 beta(t) x - 1/2 beta(t) s_theta (x, t) ] dif t
     $
 
   #v(0.5em)
@@ -545,7 +544,7 @@
     Designed a linear SDE that smoothly degrades data into Gaussian noise, providing a tractable transition kernel $p(x_t | x_0)$.
 
   2. *Training (Score Matching):*
-    Learned the score function $s_theta(x, t)$ by matching it against the analytic conditional score, bypassing the intractable marginal likelihood.
+    Learned the score function $s_theta (x, t)$ by matching it against the analytic conditional score, bypassing the intractable marginal likelihood.
 
   3. *Generation (Reverse ODE):*
     Generated new data by solving the deterministic ODE backwards, using the learned score to navigate from noise $p_T$ back to the data manifold $p_0$.
@@ -596,7 +595,7 @@
   #v(0.5em)
 
   - *Energy-Based Formulation:*
-    We formulate the condition $y$ ("satisfies all constraints") as a Boltzmann distribution. The probability of a trajectory being valid decreases exponentially as the cost increases:
+    We formulate the condition $y$ as a Boltzmann distribution. The probability of a trajectory being valid decreases exponentially as the cost increases:
     $ p_t (y | x_t) prop exp(- lambda cal(E)(x_t)) $
     where $lambda > 0$ controls the guidance strength, and $cal(E)(x_t)$ is the total cost.
 
