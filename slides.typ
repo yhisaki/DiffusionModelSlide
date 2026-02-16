@@ -192,7 +192,9 @@
   #set text(size: 18pt)
 
   *The Core Intuition:*
-  Calculating the true score $nabla_tilde(x) log q(tilde(x))$ is computationally intractable. This theorem bypasses the problem by matching the score of $q(tilde(x)|x)$ instead.  Since we explicitly design this perturbation kernel, its score is fully known. We effectively replace an impossible calculation with a tractable, human-defined one.
+  Calculating the marginal score $nabla_tilde(x) log q(tilde(x))$ is intractable because $q(tilde(x)) = integral q(tilde(x)|x)q(x) dif x$ depends on the unknown data distribution $q(x)$.
+  This theorem allows us to use $cal(L)_("DSM")$ instead, which relies on $q(tilde(x)|x)$.
+  *Crucially*, the perturbation kernel $q(tilde(x)|x)$ is independent of the unknown data $q(x)$. Since we design this kernel ourselves, its score $nabla_tilde(x) log q(tilde(x)|x)$ is analytically computable.
 
   *Choice of Conditional Distribution:*
   Typically, we choose a *Gaussian with small variance* for $q(tilde(x)|x)$ (e.g., $cal(N)(tilde(x); x, sigma^2 I)$).
@@ -203,12 +205,12 @@
 
 #slide(title: [Sampling: Langevin Dynamics from the Score @ncsn])[
 
-  Once we have the score function $s_theta(x) approx nabla_x log q(x)$, how do we generate samples?
+  Once we have the score function $s_theta (x) approx nabla_x log q(x)$, how do we generate samples?
 
   #v(0.5em)
 
   - *Langevin Dynamics:*
-    We initialize $x_0$ arbitrarily and iteratively update it using the score:
+    We initialize *$x_0$ arbitrarily* and iteratively update it using the score:
     $
       x_(t+1) arrow.l x_t + underbrace(epsilon_t s_theta (x_t), "Gradient Ascent") + underbrace(sqrt(2 epsilon_t) z_t, "Random Noise")
     $
@@ -253,123 +255,121 @@
 ]
 
 #title-slide[
-  Diffusion as an SDE
+  Introduction of Diffusion
 ]
 
-#slide(title: "Forward Diffusion: SDE and Marginal Evolution")[
+#slide(title: "Bridging Noise and Data")[
 
   #set text(size: 16pt)
 
-  How do we populate low-density regions and fix the undefined score?
-
-  *Solution:* Continuously perturb the data into pure noise over time $t in [0, T]$.
-
-  #block(fill: luma(240), inset: 1em, radius: 5pt)[
-    *Intuition: From "Cliffs" to "Gentle Hills"*
-    Raw data is like isolated "islands" in a vast space; outside them, the gradient (direction) is unknown.
-    The SDE adds noise, acting like ink spreading in water. This *smooths* the distribution, spreading probability mass into empty regions.
-    Result: The score becomes defined everywhere, creating a "slope" that guides us back to the data.
-  ]
-
-  #theorem("Forward SDE and its marginal evolution")[
-    Assume the *forward* diffusion is defined by the Itô SDE:
-    $
-      dif x = f(x, t) dif t + g(t) dif w, quad t in [0, T],
-    $
-    where $w$ is a standard Wiener process, $f(x, t)$ is the *drift* coefficient, and $g(t)$ is the scalar *diffusion* coefficient.
-
-    The marginal density $p_t (x)$ exists and evolves according to the *Fokker--Planck PDE*:
-    $
-      partial_t p_t (x)
-      = - nabla dot.c (f(x,t) p_t (x))
-      + 1/2 g(t)^2 Delta p_t (x).
-    $
-  ]
+  How do we avoid to calculate the score in the region where the probability is defined?
 
   #v(0.5em)
 
-  - *What this Theorem Means:*
-    It bridges the *microscopic* stochastic path (SDE) and the *macroscopic* density evolution (PDE). Crucially, the diffusion term $1/2 g(t)^2 Delta p_t$ acts as a smoothing operator (like heat flow). This spreads probability mass into empty regions, ensuring $p_t(x) > 0$ everywhere so the score $nabla log p_t(x)$ becomes well-defined.
-
-  - *Designing the SDE:*
-    We design the drift $f(x,t)$ and diffusion $g(t)$ specifically so that as $t arrow T$, the distribution $p_t (x)$ smoothly converges to a simple, tractable noise distribution. For example, setting $f(x,t) = -1/2 beta(t) x$ and $g(t) = sqrt(beta(t))$ ensures $p_T (x) approx cal(N)(0, I)$.
-
-  - *The Continuous Perturbation Process:*
-    - *At $t=0$: * $x_0 tilde p_0(x)$ (The complex, low-dimensional real data distribution).
-    - *At $t in (0, T)$: * Noise gradually fills the empty space. The smoothed score $nabla_x log p_t (x)$ becomes well-defined everywhere.
-    - *At $t=T$: * $x_T tilde p_T (x) approx cal(N)(0, I)$ (An unstructured, tractable prior).
+  - *The Strategy: A Continuous Path*
+    Instead of modeling $q$ directly, consider a continuous sequence of distributions $p_t$ for $t in [0, T]$ that connects:
+    - $p_0 approx q$ (The complex data distribution).
+    - $p_T approx cal(N)(0, I)$ (A tractable noise distribution defined everywhere).
 
   #v(0.5em)
 
-  $arrow.double$ *Key Idea:* By designing $f(x,t)$ and $g(t)$, we construct a process that systematically destroys data into noise. If we can *reverse* this SDE, we can generate data from noise!
+  - *Two Key Challenges:*
+    1. *Training:* How do we learn the time-dependent score $s_t (x) = nabla_x log p_t (x)$ when $p_t$ itself is unknown?
+    2. *Sampling:* How do we generate samples without stepping into regions where the score is undefined?
+
+  #align(center)[
+    #image("assets/diffusion_sde_only.png", width: 40%)
+  ]
+
+
+]
+
+#slide(title: "Challenge 1: Designing & Learning the Forward SDE")[
+
+  #set text(size: 16pt)
+
+  Since the data distribution $p_0$ is unknown, we cannot mathematically define the intermediate distributions $p_t$ directly. Instead, we define the *process* that evolves them.
+
+  #v(0.5em)
+
+  - *The Forward SDE:*
+    We construct a diffusion process that gradually transforms data into noise:
+    $
+      dif x = underbrace(f(x, t) dif t, "Drift: Deterministic change") + underbrace(g(t) dif w",", "Diffusion: Random noise") x_0 tilde p_0(x_0)
+    $
+
+  #v(0.5em)
+
+  - *Design the Forward SDE:*
+    We have to *design* the SDE to satisfy two critical conditions:
+
+    1. *Computable Transition:*
+      The transition probability $p_(t|0) (x_t | x_0)$ must be a tractable Gaussian. This avoids simulating the SDE step-by-step during training.
+    2. *Simple Prior:*
+      The process must converge to a standard Gaussian $p_T (x) approx cal(N)(0, I)$, providing a known starting point for sampling.
+
+  #v(0.5em)
+
+  $arrow.double$ Because Condition 1 gives us a known $p_(t|0) (x_t | x_0)$, we can use *Denoising Score Matching* to train the score network $s_theta (x, t)$, completely bypassing the unknown $p_t (x)$.
+]
+
+#slide(title: "Challenge 2: Sampling via Probability Flow")[
+
+  #set text(size: 14pt)
+
+  Once the score of the every time step $s_theta (x, t)$ is learned, how do we sample?
+  Naive Langevin dynamics might step into low-density regions where the score is inaccurate.
+
+  #v(0.5em)
+
+  - *The Probability Flow ODE:*
+    Remarkably, for every SDE, there exists a deterministic Ordinary Differential Equation (ODE) whose *marginal distributions $p_t (x)$ equal to those of the SDE for all $t$*.
+
+  #v(0.5em)
+
+  - *The Sampling Mechanism:*
+    1. Sample $x_T tilde p_T$ (Simple Gaussian, support everywhere).
+    2. Solve the ODE backward in time from $T$ to $0$.
+
+  #v(0.5em)
+
+  $arrow.double$ Since we follow a valid probability flow starting from a well-defined region, the trajectory $x_t$ stays within the support of $p_t$ at all times, avoiding undefined score regions.
+
+  #align(center)[
+    #image("assets/diffusion.png", width: 50%)
+  ]
+
+]
+
+#slide(title: "Roadmap: Constructing the Model")[
+
+  #set text(size: 16pt)
+
+  We have established the theoretical framework (Forward SDE $arrow.r$ Reverse ODE).
+  Now, we will construct the actual model in three concrete steps:
+
+  #v(0.5em)
+
+  1. *Step 1: Specify the SDE (VP SDE)*
+    Define the specific drift $f(x, t)$ and diffusion $g(t)$ to ensure convergence to Gaussian noise.
+
+  2. *Step 2: Train the Score (Score Matching)*
+    Train a neural network $s_theta(x, t)$ to estimate the gradient field $nabla_x log p_t(x)$.
+
+  3. *Step 3: Generate (Reverse ODE)*
+    Plug the learned score into the Probability Flow ODE and solve it backwards from noise to data.
+
 ]
 
 #title-slide[
-  Generation via Probability Flow ODE
+  Step 1: Specify the SDE (VP SDE)
 ]
 
-#slide(title: "Generation: Probability Flow ODE")[
+#slide(title: "VP SDE: A Standard Probability Flow")[
 
   #set text(size: 16pt)
 
-  The forward SDE transforms data $p_0 (x)$ into pure noise $p_T (x) approx cal(N)(0, I)$. To generate data, we reverse this process from $t=T$ down to $t=0$.
-  Remarkably, we can perfectly retrace the exact marginal densities $p_t (x)$ using a deterministic equation.
-
-  #theorem([Probability Flow ODE @score-based-generative-models])[
-    For the forward SDE $dif x = f(x, t) dif t + g(t) dif w$, there exists a corresponding deterministic *Ordinary Differential Equation (ODE)*. This ODE shares the *exact same marginal probability densities* $p_t (x)$ at all times $t in [0, T]$:
-    $
-      dif x = [ f(x, t) - 1/2 g(t)^2 nabla_x log p_t (x) ] dif t.
-    $
-  ]
-
-  #v(0.5em)
-
-  - *The Missing Piece:* To simulate this ODE backwards from $t=T$ to $t=0$, $f(x,t)$ and $g(t)$ are already known (we designed them). The *only* unknown variable is the score function $nabla_x log p_t (x)$.
-    $arrow.double$ *Our trained score model $s_theta (x, t)$ directly plugs in here!*
-]
-
-#slide(title: "Roadmap: Design the SDE, Learn the Score")[
-
-  #set text(size: 16pt)
-
-  Let's pause and summarize the theoretical framework we have established.
-
-  #v(0.5em)
-
-  - *The Key Takeaway:*
-    Given a forward SDE $dif x = f(x, t) dif t + g(t) dif w$, there exists a corresponding Probability Flow ODE:
-    $ dif x = [ f(x, t) - 1/2 g(t)^2 nabla_x log p_t (x) ] dif t $
-    The mathematical blueprint to generate data is entirely determined by the forward process and its score.
-
-  #pagebreak()
-
-  - *What remains to be done?*
-    To turn this continuous-time theory into a practical generative model, we must complete two concrete tasks:
-
-    #v(0.5em)
-
-    1. *Design a Specific Forward SDE:*
-      We need to explicitly define the drift $f(x, t)$ and diffusion $g(t)$ coefficients so that the complex data $p_0(x)$ reliably converges to a tractable noise prior $p_T (x) approx cal(N)(0, I)$.
-
-    #v(0.5em)
-
-    2. *Learn the Score Function:*
-      Since the probability flow ODE requires $nabla_x log p_t (x)$, we need a way to train a time-dependent neural network $s_theta (x, t)$ to approximate this score for *all* continuous times $t in [0, T]$.
-
-  #v(0.8em)
-
-  $arrow.double$ Let's first address *Task 1* by looking at a standard choice: the *Variance Preserving (VP) SDE*.
-]
-
-#title-slide[
-  Specify the Forward Process: VP SDE
-]
-
-#slide(title: "VP SDE: A Standard Forward Process")[
-
-  #set text(size: 16pt)
-
-  A standard choice for the forward process is the *Variance Preserving (VP) SDE*, which is the continuous-time limit of DDPM.
+  A standard choice for the probability flow is the *Variance Preserving (VP) SDE*, which is the continuous-time limit of DDPM.
 
   #v(0.5em)
 
@@ -434,15 +434,16 @@
 
 ]
 
+
 #title-slide[
-  Learn the Time-dependent Score
+  Step 2: Train the Score (Score Matching)
 ]
 
 #slide(title: "Training: Continuous-Time Score Matching")[
 
   #set text(size: 16pt)
 
-  We now have a specific SDE and its transition kernel. The final task is to train a neural network $s_theta(x, t)$ to approximate the score $nabla_x log p_t (x)$ across all continuous times $t in [0, 1]$.
+  We now have a specific SDE and its transition kernel. The task is to train a neural network $s_theta(x, t)$ to approximate the score $nabla_x log p_t (x)$ across all continuous times $t in [0, 1]$.
 
   #v(0.5em)
 
@@ -463,7 +464,7 @@
   #set text(size: 15pt)
 
   - *The Continuous-Time Objective:*
-    We train our score network $s_theta(x_t, t)$ by minimizing the expected distance to this conditional score. We sample time $t$ uniformly, original data $x_0$, and perturbed data $x_t$.
+    We train our score network $s_theta (x_t, t)$ by minimizing the expected distance to this conditional score. We sample time $t$ uniformly, original data $x_0$, and perturbed data $x_t$.
 
     $
       cal(L)(theta) = bb(E)_(t tilde cal(U)(0, 1)) bb(E)_(x_0 tilde p_0) bb(E)_(x_t tilde p_(t|0)) [ lambda(t) || s_theta(x_t, t) - underbrace((- (x_t - sqrt(alpha_t) x_0) / (1 - alpha_t)), nabla_(x_t) log p_(t|0)(x_t | x_0)) ||^2_2 ]
@@ -477,6 +478,77 @@
   #v(0.5em)
 
   $arrow.double$ By optimizing this single objective, $s_theta (x, t)$ learns the continuous vector field. We can then plug it directly into the Reverse ODE to generate data!
+]
+
+#title-slide[
+  Step 3: Generate (Reverse ODE)
+]
+
+#slide(title: "Theory: The Probability Flow ODE")[
+
+  #set text(size: 16pt)
+
+  To generate data, we need to reverse the diffusion process.
+  We utilize the fundamental theorem that connects Stochastic processes (SDE) to Deterministic processes (ODE).
+
+  #theorem([Probability Flow ODE @score-based-generative-models])[
+    For any SDE $dif x = f(x, t) dif t + g(t) dif w$, there exists a corresponding deterministic *Ordinary Differential Equation (ODE)*.
+
+    This ODE shares the *exact same marginal probability densities* $p_t (x)$ as the SDE at all times $t$:
+    $
+      dif x = [ f(x, t) - 1/2 g(t)^2 nabla_x log p_t (x) ] dif t
+    $
+  ]
+
+  #v(0.5em)
+
+  - *Implication:*
+    If we know the score $nabla_x log p_t (x)$, we can deterministically transport samples from the noise distribution $p_T$ back to the data distribution $p_0$.
+]
+
+#slide(title: "Algorithm: Solving the Reverse ODE")[
+
+  #set text(size: 16pt)
+
+  In practice, we replace the unknown true score with our trained neural network $s_theta(x, t)$.
+
+  #v(0.5em)
+
+  - *The Generative Equation:*
+    Substituting the VP SDE terms ($f = -1/2 beta(t)x$, $g = sqrt(beta(t))$), we solve the following ODE *backwards* from $t=T$ to $0$:
+    $
+      dif x = [ -1/2 beta(t) x - 1/2 beta(t) s_theta(x, t) ] dif t
+    $
+
+  #v(0.5em)
+
+  - *The Sampling Steps:*
+    1. *Initialize:* Sample pure noise $x_T tilde cal(N)(0, I)$.
+    2. *Solve:* Integrate the ODE from $T$ to $0$ using a numerical solver (e.g., Euler, Runge-Kutta, or DPM-Solver).
+    3. *Output:* The final state $x_0$ is the generated data.
+
+]
+
+#title-slide[
+  Summary: The Diffusion Framework
+]
+
+#slide(title: "Summary: The Diffusion Framework")[
+
+  #set text(size: 16pt)
+
+  We have constructed a generative model based on the Probability Flow ODE.
+
+  #v(0.5em)
+
+  1. *Forward Process (VP SDE):*
+    Designed a linear SDE that smoothly degrades data into Gaussian noise, providing a tractable transition kernel $p(x_t | x_0)$.
+
+  2. *Training (Score Matching):*
+    Learned the score function $s_theta(x, t)$ by matching it against the analytic conditional score, bypassing the intractable marginal likelihood.
+
+  3. *Generation (Reverse ODE):*
+    Generated new data by solving the deterministic ODE backwards, using the learned score to navigate from noise $p_T$ back to the data manifold $p_0$.
 ]
 
 #title-slide[
@@ -599,9 +671,7 @@
   Accelerating Generation: DPM-Solver++
 ]
 
-#slide(title: "The Bottleneck of Standard ODE Solvers")[
-
-  #set text(size: 16pt)
+#slide(title: "Accelerating Generation: DPM-Solver++")[
 
   While the Probability Flow ODE is elegant, solving it with standard numerical methods (like Euler or Runge-Kutta) is notoriously slow, often requiring 200 to 1000 steps.
 
@@ -613,39 +683,19 @@
       dif x = underbrace(-1/2 beta(t) x, "Linear Drift (Stiff)") dif t - 1/2 beta(t) underbrace(epsilon_theta (x, t), "Neural Network") dif t
     $
 
-  #v(0.5em)
+  #pagebreak()
 
-  - *The Semi-Analytic Solution (DPM-Solver):*
-    Instead of treating the entire ODE as a black box, Lu et al. (2022) proposed using an *Exponential Integrator*.
-    By applying the variation of constants formula, DPM-Solver solves the linear drift part $f(x,t)$ *exactly analytically*. It only relies on numerical approximation for the non-linear neural network part $epsilon_theta(x, t)$.
+  - *The Semi-Analytic Solution (Exponential Integrator):*
+    Instead of treating the whole ODE as a black box, we exploit its semi-linear structure.
+    By applying the variation of constants formula, we can solve the linear part $-1/2 beta(t) x$ *exactly analytically*.
 
-  #v(0.5em)
+    $
+      x(t) = underbrace(e^(- integral_s^t 1/2 beta(r) dif r) x(s), "Exact Linear Evolution") - integral_s^t e^(- integral_u^t 1/2 beta(r) dif r) 1/2 beta(u) epsilon_theta (x_u, u) dif u
+    $
 
-  $arrow.double$ This reduces the required steps from 1000 down to around 50. But can we go even faster?
-]
+    #v(0.5em)
 
-#slide(title: "DPM-Solver++: The Data Prediction Upgrade")[
-
-  #set text(size: 15pt)
-
-  DPM-Solver is fast, but it suffers from instability at very small $t$ (near the end of generation), especially when using large Classifier-Free Guidance scales. *DPM-Solver++* fixes this via a clever reparameterization.
-
-  #v(0.5em)
-
-  - *Noise vs. Data Prediction:*
-    Instead of approximating the noise trajectory $epsilon_theta(x, t)$, DPM-Solver++ rewrites the exact ODE solution to integrate over the *data prediction* model $x_theta(x, t) approx x_0$:
-    $ x_theta(x_t, t) = (x_t - sqrt(1 - alpha_t) epsilon_theta(x_t, t)) / sqrt(alpha_t) $
-
-  #v(0.5em)
-
-  - *Why predict the clean image $x_0$?*
-    The predicted noise $epsilon$ oscillates sharply as the generation progresses. However, the model's prediction of the final clean image $x_theta$ becomes remarkably *stable and smooth* as $t$ decreases.
-    Integrating a mathematically *smoother function* allows for Taylor expansions with much larger step sizes and lower truncation error!
-
-  #v(0.5em)
-
-  - *The Impact:*
-    By applying a multi-step update rule on this smooth $x_theta$ trajectory, DPM-Solver++ can generate extremely high-quality images in just *10 to 20 steps*, effectively making real-time diffusion a reality.
+    $arrow.double$ We only need to numerically approximate the integral of the neural network part $epsilon_theta$. Since $epsilon_theta$ (or data prediction $x_theta$) changes much more smoothly than the raw drift, we can take huge steps with minimal error!
 ]
 
 // Bibliography
