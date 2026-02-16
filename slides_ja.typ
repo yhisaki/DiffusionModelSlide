@@ -55,11 +55,11 @@
 
   - *Limitations:*
     *しかし*、人間の行動は本質的に*マルチモーダル(多峰性)*であり、不確実である。
-    - 曖昧な状況下では、有効な取るべき行動が複数存在する。
+    - 曖昧な状況下では、取るべき行動が複数存在する。
 
   #v(0.5em)
 
-  $arrow.double$ 単一のパスだけでなく、完全な分布 $p(tau | c)$ を学習する*生成モデル*が必要である。
+  $arrow.double$ 単一の軌跡だけでなく、完全な分布 $p(tau | c)$ を学習する*生成モデル*が必要である。
 ]
 
 #slide(title: "Motivation: Iterative Refinement")[
@@ -68,7 +68,7 @@
   #v(0.8em)
 
   - *Standard Approach (e.g., VAE):*
-    潜在変数 $z tilde cal(N)(0, I)$ を導入し、*単一*のDecoder $p_theta (x|z)$ を介してデータにマッピングする。
+    潜在変数 $z tilde cal(N)(0, I)$ を導入し、*単一*の Decoder $p_theta (x|z)$ を介してデータにマッピングする。
     $ z arrow.long^(p_theta (x|z)) x $
 
   #v(0.5em)
@@ -80,9 +80,9 @@
 
   - *Solution (Diffusion Models):*
     生成を*複数の段階的な変換*に分解する。
-    サンプルをstep-by-stepで改善していく。
+    サンプルを段階的に改善していく。
     $x_T arrow.long x_(T-1) arrow.long ... arrow.long x_0$
-    $ x_T tilde cal(N)( dot | 0, I), x_0 tilde q(x_0) $
+    $ x_T tilde cal(N)(0, I), x_0 tilde q(x_0) $
 ]
 
 #slide(title: "3つの定式化と本日の焦点")[
@@ -100,7 +100,7 @@
 
   2. *Score Matching @score-based-generative-models*
     - 確率微分方程式 (SDE) を介して定式化。
-    - _キーアイデア:_ *スコア関数* $nabla_x log p_t (x)$ (より高い密度への方向)を学習する。
+    - _キーアイデア:_ *スコア関数* $nabla_x log p_t (x)$(より高い密度への方向)を学習する。
   #v(0.2em)
 
   3. *Flow Matching @flow-matching*
@@ -124,8 +124,8 @@
   #v(0.5em)
 
   - *モデリングの課題:*
-    柔軟な確率モデルは、しばしば正規化定数(分配関数)を除いた形で定義される。(Energy-Based Models):
-    $ p_theta (x) = (exp(-E_theta (x))) / Z_theta, quad Z_theta = integral exp(-E_theta (x)) dif x $
+    柔軟な確率モデルは、しばしば正規化定数(分配関数)を除いた形で定義される(Energy-Based Model; EBM)。
+    $ p_theta (x) = exp(-E_theta (x)) / Z_theta, quad Z_theta = integral exp(-E_theta (x)) dif x $
 
   #v(0.5em)
 
@@ -148,7 +148,7 @@
   密度の代わりに「対数密度の勾配」をモデル化することで、分配関数の問題を完全に回避できる。
   #definition("スコア関数")[
     確率密度 $p(x)$ に対して、スコアは以下のように定義される:
-    $ s(x) := nabla_x log p(x). $
+    $ s(x) := nabla_x log p(x) $
   ]
 
   - *直感: ベクトル場*
@@ -226,7 +226,7 @@
 
   #set text(size: 15pt)
 
-  理論は健全だが、このアイディアをナイーブに用いた学習は実際にはしばしば失敗する。
+  理論自体は健全だが、これをナイーブに適用した学習は実際にはしばしば失敗する。
   #v(0.5em)
 
   1. *多様体仮説 (The Manifold Hypothesis)*
@@ -254,7 +254,7 @@
 
   #set text(size: 16pt)
 
-  確率が定義されている領域でスコアを計算することを避けるにはどうすればよいか？
+  確率が定義されていない領域でスコアを計算することを避けるにはどうすればよいか？
   #v(0.5em)
 
   - *Strategy: 連続的な分布の変形*
@@ -283,21 +283,23 @@
   - *The Forward SDE:*
     データ点を徐々にノイズに変換する拡散過程を構築する:
     $
-      dif x = underbrace(f(x, t) dif t, "ドリフト: 決定論的変化") + underbrace(g(t) dif w",", "拡散: ランダムノイズ") x_0 tilde p_0(x_0)
+      dif x = underbrace(f(x, t), "ドリフト:決定論的変化") dif t
+      + underbrace(g(t), "拡散:ランダムノイズ") dif w,
+      quad x_0 tilde p_0(x_0)
     $
 
   #v(0.5em)
 
-  - *Forward SDEの設計:*
-    以下の2つの重要な条件を満たすようにSDEを*設計*する必要がある:
+  - *Forward SDE の設計:*
+    以下の2つの重要な条件を満たすように SDE を*設計*する必要がある:
 
     1. *計算可能な遷移:*
-      遷移確率 $p_(t|0) (x_t | x_0)$ は扱いやすいガウス分布でなければならない。これにより、学習中にSDEをstep-by-stepでシミュレーションする必要がなくなる。
+      遷移確率 $p_(t|0) (x_t | x_0)$ は扱いやすいガウス分布でなければならない。これにより、学習中に SDE を step-by-step でシミュレーションする必要がなくなる。
     2. *単純な事前分布:*
       プロセスは標準ガウス分布 $p_T (x) approx cal(N)(0, I)$ に収束し、サンプリングの既知の開始点を提供しなければならない。
   #v(0.5em)
 
-  $arrow.double$ 条件1により $p_(t|0) (x_t | x_0)$ が得られるため、未知の $p_t (x)$ を*デノイジング・スコアマッチング*を使用してスコアネットワーク $s_theta (x, t)$ を学習できる。
+  $arrow.double$ 条件 1 により $p_(t|0) (x_t | x_0)$ が得られるため、未知の $p_t (x)$ を*デノイジング・スコアマッチング*を使用してスコアネットワーク $s_theta (x, t)$ を学習できる。
 ]
 
 #slide(title: "課題2: 確率フローによるサンプリング")[
@@ -305,19 +307,19 @@
   #set text(size: 14pt)
 
   すべてのタイムステップのスコア $s_theta (x, t)$ が学習された後、どのようにサンプリングするか？
-  単純なLangevin Dynamicsでは、スコアが不正確な低密度領域に踏み込んでしまう可能性がある。
+  単純な Langevin dynamics では、スコアが不正確な低密度領域に踏み込んでしまう可能性がある。
   #v(0.5em)
 
-  - *確率フローODE (Probability Flow ODE):*
-    すべてのSDEに対して、*その周辺分布 $p_t (x)$ がすべての $t$ においてSDEのものと等しい*決定論的常微分方程式 (ODE) が存在する。(後ほど詳しく説明)
+  - *確率フロー ODE (Probability Flow ODE):*
+    すべての SDE に対して、*その周辺分布 $p_t (x)$ がすべての $t$ において SDE のものと等しい*決定論的常微分方程式(ODE)が存在する(後ほど詳しく説明)。
   #v(0.5em)
 
   - *サンプリングのメカニズム:*
     1. サンプル $x_T tilde p_T$ (単純なガウス分布)。
-    2. 時間を $T$ から $0$ へ逆方向にODEを解く。
+    2. 時間を $T$ から $0$ へ逆方向に ODE を解く。
   #v(0.5em)
 
-  $arrow.double$ 明確に定義された領域から始まる有効な確率フローに従うため、軌跡 $x_t$ は常に スコアが定義される領域に留まり、未定義のスコア領域を回避する。
+  $arrow.double$ 明確に定義された領域から始まる有効な確率フローに従うため、軌跡 $x_t$ は常にスコアが定義される領域に留まり、未定義のスコア領域を回避する。
   #align(center)[
     #image("assets/diffusion.png", width: 50%)
   ]
@@ -337,7 +339,7 @@
   2. *ステップ 2: スコアの学習*
     勾配場 $nabla_x log p_t(x)$ を推定するためにニューラルネットワーク $s_theta (x, t)$ を学習する。
   3. *ステップ 3: 生成 (Reverse ODE)*
-    学習したスコアを確率フローODEに代入し、ノイズからデータへ逆方向に解く。
+    学習したスコアを確率フロー ODEに代入し、ノイズからデータへ逆方向に解く。
 ]
 
 #title-slide[
@@ -348,7 +350,7 @@
 
   #set text(size: 16pt)
 
-  確率フローの標準的な選択肢は *Variance Preserving (VP) SDE* であり、これはDDPMの連続時間極限である。
+  確率フローの標準的な選択肢は *Variance Preserving (VP) SDE* であり、これは DDPMの連続時間極限である。
   #v(0.5em)
 
   - *SDEの定式化:*
@@ -360,10 +362,10 @@
   #v(0.5em)
 
   - *なぜ「分散保存 (Variance Preserving)」なのか？*
-    初期データ $x_0$ が分散$1$を持つ場合、$x_t$ の分散はすべての $t$ に対して $1$ のままである。
+    初期データ $x_0$ が分散 $1$を持つ場合、$x_t$ の分散はすべての $t$ に対して $1$ のままである。
     ドリフトはデータを原点に向かって滑らかに縮小し、拡散はガウスノイズを追加することでそれを完全に補償する。
   - *計算可能な遷移カーネル:*
-    このSDEは線形であるため、$x_0$ から $x_t$ への遷移確率は常に扱いやすいガウス分布となる。
+    この SDE は線形であるため、$x_0$ から $x_t$ への遷移確率は常に扱いやすいガウス分布となる。
     $alpha_t = exp(- integral_0^t beta(s) dif s)$ とすると:
     $
       p_(t|0)(x_t | x_0) = cal(N)(x_t; sqrt(alpha_t) x_0, (1 - alpha_t) I)
@@ -412,13 +414,13 @@
 
   #set text(size: 16pt)
 
-  具体的なSDEとその遷移カーネル$p_(t|0)(x_t|x_0)$を設計できた。
+  具体的な SDE とその遷移カーネル $p_(t|0)(x_t | x_0)$ を設計できた。
   次は、すべての連続時間 $t in [0, 1]$ にわたってスコア $nabla_x log p_t (x)$ を近似するようにニューラルネットワーク $s_theta (x, t)$ を学習する。
   #v(0.5em)
 
   - *デノイジング・スコアマッチングの拡張:*
-    先程は，計算不能な周辺スコア$q(x)$に対して，
-    それと同様に、計算不能な周辺スコアをマッチングさせることは、*既知の*条件付きスコア $nabla_(x_t) log p_(t|0)(x_t | x_0)$ をマッチングさせることと数学的に等価である。
+    先ほどと同様に、周辺スコア $nabla_x log p_t (x)$ は直接計算できない。
+    しかし、周辺スコアを直接マッチングする代わりに、*既知の*条件付きスコア $nabla_(x_t) log p_(t|0)(x_t | x_0)$ をマッチングさせることと数学的に等価である。
   #v(0.5em)
 
   - *VP SDEの条件付きスコア:*
@@ -445,26 +447,26 @@
     勾配爆発を防ぎ、すべての時間で損失のバランスをとるために、典型的には分散に比例する正の重み付け関数、例えば $lambda(t) = 1 - alpha_t$ を選択する。
   #v(0.5em)
 
-  $arrow.double$ この単一の目的関数を最適化することで、$s_theta (x, t)$ は連続ベクトル場を学習することが出来る。
+  $arrow.double$ この単一の目的関数を最適化することで、$s_theta (x, t)$ は連続ベクトル場を学習できる。
 ]
 
 #title-slide[
   ステップ 3: 生成 (Reverse ODE)
 ]
 
-#slide(title: "理論: 確率フローODE")[
+#slide(title: "理論: 確率フロー ODE")[
 
   #set text(size: 14pt)
 
-  データを生成するには、拡散過程を逆転させる必要がある。しかし，SDEの符号を反転させるだけでは逆過程を得ることは出来ない．
-  そこで，確率過程 (SDE) と決定論的過程 (ODE) を結びつける基本定理を利用する。
-  #theorem([確率フローODE @score-based-generative-models])[
-    任意のSDE $dif x = f(x, t) dif t + g(t) dif w$ に対して、対応する決定論的な*常微分方程式 (ODE)* が存在する。
-    このODEは、すべての時間 $t$ においてSDEと*全く同じ周辺確率密度* $p_t (x)$ を共有する:
+  データを生成するには、拡散過程を逆転させる必要がある。しかし、SDE の符号を反転させるだけでは逆過程を得ることはできない。
+  そこで、確率過程(SDE)と決定論的過程(ODE)を結びつける基本定理を利用する。
+  #theorem([確率フロー ODE @score-based-generative-models])[
+    任意の SDE $dif x = f(x, t) dif t + g(t) dif w$ に対して、対応する決定論的な*常微分方程式 (ODE)* が存在する。
+    この ODE は、すべての時間 $t$ において SDE と*全く同じ周辺確率密度* $p_t (x)$ を共有する:
     $
       dif x = [ f(x, t) - 1/2 g(t)^2 nabla_x log p_t (x) ] dif t
     $
-  ] <probablity-flow-ode-theorem>
+  ] <probability-flow-ode-theorem>
 
 
   - *含意:*
@@ -483,7 +485,7 @@
   #v(0.5em)
 
   - *Generation:*
-    VP SDEの項($f = -1/2 beta(t)x$, $g = sqrt(beta(t))$)を代入し、以下の方程式を $t=T$ から $0$ へ*逆方向*に解く:
+    VP SDE の項($f = -1/2 beta(t)x$, $g = sqrt(beta(t))$)を代入し、以下の方程式を $t=T$ から $0$ へ*逆方向*に解く:
     $
       dif x = [ -1/2 beta(t) x - 1/2 beta(t) s_theta (x, t) ] dif t
     $
@@ -492,7 +494,7 @@
 
   - *サンプリングステップ:*
     1. *初期化:* 純粋なノイズ $x_T tilde cal(N)(0, I)$ をサンプリングする。
-    2. *解く:* 数値解法(例: Euler、Runge-Kutta、またはDPM-Solver)を使用して、$T$ から $0$ までODEを積分する。
+    2. *解く:* 数値解法(例:Euler、Runge–Kutta、または DPM-Solver)を使用して、$T$ から $0$ まで ODE を積分する。
     3. *出力:* 最終状態 $x_0$ が生成されたデータとなる。
 ]
 
@@ -502,15 +504,15 @@
 
 #slide(title: "まとめ: 拡散フレームワーク")[
 
-  確率フローODEに基づく生成モデルを構築した。
+  確率フロー ODE に基づく生成モデルを構築した。
   #v(0.5em)
 
   1. *順方向プロセス (VP SDE):*
-    データを滑らかにガウスノイズに劣化させる線形SDEを設計し、扱いやすい遷移カーネル $p_(t|0) (x_t | x_0)$ を提供した。
+    データを滑らかにガウスノイズに劣化させる線形 SDE を設計し、扱いやすい遷移カーネル $p_(t|0) (x_t | x_0)$ を提供した。
   2. *学習 (スコアマッチング):*
-    解析的な条件付きスコアとマッチングさせることで、計算不能な周辺尤度をバイパスしてスコア関数 $s_theta (x, t)$ を学習した。
+    解析的な条件付きスコアとマッチングさせることで、計算不能な周辺密度の正規化定数を回避してスコア関数 $s_theta (x, t)$ を学習した。
   3. *生成 (Reverse ODE):*
-    学習したスコアを使用してデータ点 $x_0 tilde p_T approx q$ を正規分布 $x_T tilde p_T$ へ輸送する決定論的ODEを逆方向に解くことで新しいデータのサンプルを可能にした。
+    学習したスコアを使用して、正規分布 $x_T tilde p_T$ からデータ分布 $x_0 tilde p_0 approx q$ へサンプルを輸送する決定論的 ODE を逆方向に解くことで、新しいデータの生成を可能にした。
 ]
 
 #title-slide[
@@ -522,59 +524,59 @@
   #set text(size: 16pt)
 
   これまでの説明で無条件のデータ $x tilde p_0(x)$ を生成する方法は明らかになった。
-  もしクラス $y$(例: テキストプロンプトやクラスラベル)を条件としてデータを生成したい場合はどうするか？
+  もしクラス $y$(例:テキストプロンプトやクラスラベル)を条件としてデータを生成したい場合はどうするか？
   #v(0.5em)
 
   - *条件付きスコア:*
-    条件付きサンプルを生成するには、Reverse ODE内の無条件スコア $nabla_x log p_t (x)$ を条件付きスコア $nabla_x log p_t (x | y)$ に置き換えるだけでよい。
+    条件付きサンプルを生成するには、Reverse ODE 内の無条件スコア $nabla_x log p_t (x)$ を条件付きスコア $nabla_x log p_t (x | y)$ に置き換えるだけでよい。
   #v(0.5em)
 
   - *ベイズの定理の適用:*
     事後確率 $p_t (x | y) prop p_t (x) p_t (y | x)$ の勾配をとることで、以下のような分解が得られる:
 
     $
-      nabla_x log p_t (x | y) = underbrace(nabla_x log p_t (x), "unconditional score" \ s_theta (x, t)) + underbrace(nabla_x log p_t (y | x), "Guidance項" \ ("尤度"))
+      nabla_x log p_t (x | y) = underbrace(nabla_x log p_t (x), "unconditional score" \ s_theta (x, t)) + underbrace(nabla_x log p_t (y | x), "Guidance 項" \ ("尤度"))
     $
 
   #v(0.5em)
 
   - *メカニズム:*
     1. *無条件スコア:* 生成されたサンプルが(データから学習した)リアルで高品質なデータに見えることを保証する。
-    2. *Guidance項:* ベクトル場として機能し、軌跡を条件 $y$ を満たすデータ多様体の領域へと押しこむ。
+    2. *Guidance 項:* ベクトル場として機能し、軌跡を条件 $y$ を満たすデータ多様体上の所望の領域へと押し込む。
 ]
 
 #slide(title: "応用: Diffusion PlannerにおけるGuidance")[
 
   #set text(size: 16pt)
 
-  *Diffusion Planner* では、特定の制約(例: 障害物回避、目標速度)を満たす有効な軌跡を生成したい。
+  *Diffusion Planner* では、特定の制約(例:障害物回避、目標速度)を満たす有効な軌跡を生成したい。
   #v(0.5em)
 
   - *Rethinking the Guidance Term:*
     $p_t (y | x)$ を予測するために別のニューラルネットワーク分類器を学習する代わりに、これらのルールを*人間が設計したコスト関数* $cal(E)(x)$ を用いて数学的に定義できる。
 
-    $=>$ 制約を満たす軌道の確率を高く，満たさない軌道の確率を低くするようなスコアを定義できる。
+    $arrow.double$ 制約を満たす軌跡の確率を高く、満たさない軌跡の確率を低くするようなスコアを定義できる。
 
   #v(0.5em)
 
   - *Energy-Based Formulation:*
-    条件 $y$をボルツマン分布として定式化する。
+    条件 $y$ をボルツマン分布として定式化する。
     軌跡が有効である確率は、コストが増加するにつれて指数関数的に減少する:
     $ p_t (y | x_t) prop exp(- lambda cal(E)(x_t)) $ <energy-based-formulation>
-    ここで、$lambda > 0$ はGuidanceの強さを制御し、$cal(E)(x_t)$ は総コストである。
+    ここで、$lambda > 0$ は Guidance の強さを制御し、$cal(E)(x_t)$ は総コストである。
   #pagebreak()
 
   - *Relationship between Trajectory Optimization and Guidance:*
-    $cal(E)(x_t)$ は一般的な軌道最適化のコスト関数として捉えることができる。Guidanceを適用した生成は，学習による生成と軌道の最適化の両方を組み合わせたものと解釈することができる．
+    $cal(E)(x_t)$ は一般的な軌道最適化のコスト関数として捉えることができる。Guidance を適用した生成は、学習による生成と軌道最適化の双方を組み合わせたものと解釈できる。
 
 
   - *Analytic Guidance Field:*
     $ nabla_(x_t) log p_t (x_t | y) = s_theta (x_t, t) - lambda nabla_(x_t) cal(E)(x_t) $
-    *(例:  $cal(E)(x_t) = cal(E)_"obstacle" (x_t) + cal(E)_"velocity" (x_t)$)*
+    *(例:$cal(E)(x_t) = cal(E)_"obstacle" (x_t) + cal(E)_"velocity" (x_t)$)*
 
   #v(0.5em)
 
-  $arrow.double$ 無条件スコア $s_theta (x_t, t)$ は，人間の運転行動を模倣し、一方で $-lambda nabla_(x_t) cal(E)(x_t)$ は推論中にパスを設計された制約に沿う方向への「斥力」として機能する．
+  $arrow.double$ 無条件スコア $s_theta (x_t, t)$ は人間の運転行動を模倣し、一方で $-lambda nabla_(x_t) cal(E)(x_t)$ は推論時に軌跡を設計された制約に沿う方向へ誘導する「外力」として機能する。
 ]
 
 #title-slide[
@@ -585,18 +587,18 @@
 
   #set text(size: 16pt)
 
-  確率フローODEは完全に*決定論的*であるため、複雑なデータ空間 $x_0 tilde p_0$ と単純な潜在空間 $x_T tilde p_T$ の間に全単射(1対1)写像を定義する。
+  確率フロー ODE は完全に*決定論的*であるため、複雑なデータ空間 $x_0 tilde p_0$ と単純な潜在空間 $x_T tilde p_T$ の間に全単射(1対1)写像を定義する。
   #v(0.5em)
 
   - *補間の方法: 画像の補間の例*
     1. *Encode:* 2つの実画像 $x_0^((A))$ と $x_0^((B))$ を用意する。
-    ODEを*順方向*にシミュレーションし ($t=0 arrow T$)、それらの正確な潜在表現 $x_T^((A))$ と $x_T^((B))$ を見つける。
-    2. *補間:* 潜在空間でパラメータ $lambda in [0, 1]$ を使用して潜在変数を作成する(例:  $z_lambda = "Slerp"(x_T^((A)), x_T^((B)), lambda)$)。
-    3. *デコード:* $z_lambda$ から開始してODEを*逆方向*にシミュレーションし ($t=T arrow 0$)、中間画像 $x_0^((lambda))$ を生成する。
+    ODE を*順方向*にシミュレーションし ($t=0 arrow T$)、それらの正確な潜在表現 $x_T^((A))$ と $x_T^((B))$ を見つける。
+    2. *補間:* 潜在空間でパラメータ $lambda in [0, 1]$ を使用して潜在変数を作成する(例:$z_lambda = "Slerp"(x_T^((A)), x_T^((B)), lambda)$)。
+    3. *デコード:* $z_lambda$ から開始して ODE を*逆方向*にシミュレーションし ($t=T arrow 0$)、中間画像 $x_0^((lambda))$ を生成する。
   #v(0.5em)
 
   - *応用方法:*
-    たとえば，経路生成の文脈で潜在空間を活用すると，異なるプランナーから出力される経路を潜在空間上でなめらかに補間し，経路の急な変化を防ぐというような応用が考えられる．
+    たとえば、経路生成の文脈で潜在空間を活用すると、異なるプランナーから出力される経路を潜在空間上で滑らかに補間し、経路の急な変化を防ぐというような応用が考えられる。
   #align(center)[
     #image("assets/celeba_interp.png", width: 65%)
   ]
@@ -606,11 +608,11 @@
 
   #set text(size: 16pt)
 
-  Reverse ODEにより、任意のデータ点の*正確な*確率密度 $p_0(x)$ を計算できる。
+  Reverse ODE により、任意のデータ点の*正確な*確率密度 $p_0(x)$ を計算できる。
   #v(0.5em)
 
   - *瞬時変数変換公式:*
-    $f_("ODE")(x, t)$ を確率フローODEのベクトル場とする。
+    $f_("ODE")(x, t)$ を確率フロー ODE のベクトル場とする。
     対数確率の時間変化は、このベクトル場の負の発散(ダイバージェンス)によって与えられる:
     $
       (partial log p_t (x)) / (partial t) = - nabla_x dot.c f_("ODE")(x, t)
@@ -619,14 +621,14 @@
   #v(0.5em)
 
   - *尤度の計算:*
-    実画像 $x_0$ の正確な対数尤度を求めるには、$t=0$ から $t=T$ までODE軌跡に沿ってこの発散を積分する:
+    実画像 $x_0$ の正確な対数尤度を求めるには、$t=0$ から $t=T$ まで ODE 軌跡に沿ってこの発散を積分する:
     $
       log p_0(x_0) = log p_T (x_T) + integral_0^T nabla_(x_t) dot.c f_("ODE")(x_t, t) dif t
     $
     ここで、$p_T (x_T)$ は単純なガウス事前分布 $cal(N)(0, I)$ である。
   #v(0.5em)
 
-  - *応用方法:* 尤度を用いることによって，モデルの評価や異常検知が可能になる．
+  - *応用方法:* 尤度を用いることによって、モデルの評価や異常検知が可能になる。
 ]
 
 #title-slide[
@@ -635,11 +637,11 @@
 
 #slide(title: "生成の高速化: DPM-Solver++")[
 
-  確率フローODEは、標準的な数値解法(EulerやRunge-Kuttaなど)で解くのは非常に遅く、多くの場合200〜1000ステップを必要とする。
+  確率フロー ODE は、標準的な数値解法(Euler や Runge–Kutta など)で解くのは非常に遅く、多くの場合、200〜1000ステップを必要とする。
   #v(0.5em)
 
   - *なぜそんなに遅いのか？*
-    ODEには「剛性 (stiff)」のある線形ドリフト項が含まれている。
+    ODE には「剛性(stiff)」のある線形ドリフト項が含まれている。
     大きなステップサイズをとると、打ち切り誤差が爆発し、画像が破壊される。
     $
       dif x = underbrace(-1/2 beta(t) x, "線形ドリフト (剛性あり)") dif t - 1/2 beta(t) underbrace(epsilon_theta (x, t), "ニューラルネットワーク") dif t
@@ -648,7 +650,7 @@
   #pagebreak()
 
   - *半解析的解法(指数積分器):*
-    ODE全体をブラックボックスとして扱うのではなく、その半線形構造を利用する。
+    ODE 全体をブラックボックスとして扱うのではなく、その半線形構造を利用する。
     定数変化法(variation of constants formula)を適用することで、線形部分 $-1/2 beta(t) x$ を*正確に解析的に*解くことができる。
     $
       x(t) = underbrace(e^(- integral_s^t 1/2 beta(r) dif r) x(s), "正確な線形発展") - integral_s^t e^(- integral_u^t 1/2 beta(r) dif r) 1/2 beta(u) epsilon_theta (x_u, u) dif u
